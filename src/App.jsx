@@ -10,24 +10,54 @@ import {
   Image,
   Grid,
   Divider,
+  Card,
+  TextAreaField,
+  Loader,
 } from "@aws-amplify/ui-react";
 import { Amplify } from "aws-amplify";
 import "@aws-amplify/ui-react/styles.css";
 import { getUrl } from "aws-amplify/storage";
 import { uploadData } from "aws-amplify/storage";
 import { generateClient } from "aws-amplify/data";
+
+import { client } from "./client";
+
 import outputs from "../amplify_outputs.json";
 /**
  * @type {import('aws-amplify/data').Client<import('../amplify/data/resource').Schema>}
  */
 
 Amplify.configure(outputs);
-const client = generateClient({
-  authMode: "userPool",
-});
 
 export default function App() {
   const [notes, setNotes] = useState([]);
+
+  // Function to generate a summary using Claude 3.5 Haiku
+  const summarizeText = async (text) => {
+    try {
+      console.log("Sending text to summarize:", text);
+      
+      const response = await client.generations.generateSummary({
+        description: text
+      });
+      
+      console.log("Full AI response:", response);
+      
+      // Check if response and data exist
+      if (response && response.data) {
+        alert(response.data);
+        return response.data;
+      } else {
+        console.error("Received empty response from AI service:", response);
+        alert("Received empty response from AI service. Check console for details.");
+        return null;
+      }
+    } catch (error) {
+      console.error("Error generating summary:", error);
+      alert("Error generating summary: " + (error.message || "Unknown error"));
+      return null;
+    }
+  };
 
   useEffect(() => {
     fetchNotes();
@@ -54,39 +84,86 @@ export default function App() {
   async function createNote(event) {
     event.preventDefault();
     const form = new FormData(event.target);
-    console.log(form.get("image").name);
-
+    // Check if an image was provided
+    const imageFile = form.get("image");
+    const imageName = imageFile && imageFile.name ? imageFile.name : null;
+    
+    // Create the note with or without an image
     const { data: newNote } = await client.models.Note.create({
       name: form.get("name"),
       description: form.get("description"),
-      image: form.get("image").name,
+      image: imageName,
     });
 
-    console.log(newNote);
-    if (newNote.image)
-      if (newNote.image)
-        await uploadData({
-          path: ({ identityId }) => `media/${identityId}/${newNote.image}`,
-
-          data: form.get("image"),
-        }).result;
+    console.log("New note created:", newNote);
+    
+    // Upload the image if one was provided
+    if (newNote.image && imageFile && imageFile.size > 0) {
+      await uploadData({
+        path: ({ identityId }) => `media/${identityId}/${newNote.image}`,
+        data: imageFile,
+      }).result;
+    }
 
     fetchNotes();
     event.target.reset();
   }
 
   async function deleteNote({ id }) {
-    const toBeDeletedNote = {
-      id: id,
-    };
+    try {
+      const toBeDeletedNote = {
+        id: id,
+      };
 
-    const { data: deletedNote } = await client.models.Note.delete(
-      toBeDeletedNote
-    );
-    console.log(deletedNote);
-
-    fetchNotes();
+      const { data: deletedNote } = await client.models.Note.delete(
+        toBeDeletedNote
+      );
+      console.log("Note deleted:", deletedNote);
+      
+      // Refresh the notes list
+      fetchNotes();
+    } catch (error) {
+      console.error("Error deleting note:", error);
+      alert("Failed to delete note. Check console for details.");
+    }
   }
+  
+  // Function to summarize a specific note
+  async function summarizeNoteContent(note) {
+    if (!note.description) {
+      alert("This note has no description to summarize.");
+      return;
+    }
+    
+    await summarizeText(note.description);
+  }
+
+  // Test function to verify AI summarization works
+  const testSummarize = async () => {
+    console.log("Testing AI summarization...");
+    const testText = "This is a test text that needs to be summarized. It's a simple example to verify that the AI summarization feature is working correctly with the backend.";
+    
+    try {
+      // Try direct API call without using the helper function
+      console.log("Making direct API call to generations.generateSummary");
+      
+      // First approach - using client directly
+      const directResponse = await client.generations.generateSummary({
+        description: testText
+      });
+      
+      console.log("Direct API response:", directResponse);
+      
+      if (directResponse && directResponse.data) {
+        alert("Direct API call result: " + directResponse.data);
+      } else {
+        alert("Direct API call returned no data");
+      }
+    } catch (error) {
+      console.error("Error in direct API call:", error);
+      alert("Error in direct API call: " + (error.message || "Unknown error"));
+    }
+  };
 
   return (
     <Authenticator>
@@ -100,6 +177,20 @@ export default function App() {
           margin="0 auto"
         >
           <Heading level={1}>My Notes App</Heading>
+          <Flex direction="column" gap="1rem" marginBottom="1rem">
+            <Heading level={3}>AI Testing</Heading>
+            <Flex direction="row" gap="1rem">
+              <Button onClick={testSummarize} variation="primary">
+                Test Direct API Call
+              </Button>
+              <Button 
+                onClick={() => summarizeText("Write a funny summary about a notes app that lets you save memories and images.")} 
+                variation="primary">
+                Test Helper Function
+              </Button>
+            </Flex>
+            <Text>Check browser console for detailed logs</Text>
+          </Flex>
           <View as="form" margin="3rem 0" onSubmit={createNote}>
             <Flex
               direction="column"
@@ -164,16 +255,24 @@ export default function App() {
                 {note.image && (
                   <Image
                     src={note.image}
-                    alt={`visual aid for ${notes.name}`}
+                    alt={`visual aid for ${note.name}`}
                     style={{ width: 400 }}
                   />
                 )}
-                <Button
-                  variation="destructive"
-                  onClick={() => deleteNote(note)}
-                >
-                  Delete note
-                </Button>
+                <Flex direction="row" gap="1rem">
+                  <Button
+                    variation="destructive"
+                    onClick={() => deleteNote(note)}
+                  >
+                    Delete note
+                  </Button>
+                  <Button
+                    variation="primary"
+                    onClick={() => summarizeNoteContent(note)}
+                  >
+                    Summarize
+                  </Button>
+                </Flex>
               </Flex>
             ))}
           </Grid>
