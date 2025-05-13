@@ -13,6 +13,7 @@ import {
   Card,
   TextAreaField,
   Loader,
+  Badge,
 } from "@aws-amplify/ui-react";
 import { Amplify } from "aws-amplify";
 import "@aws-amplify/ui-react/styles.css";
@@ -31,8 +32,10 @@ Amplify.configure(outputs);
 
 export default function App() {
   const [notes, setNotes] = useState([]);
+  const [summaries, setSummaries] = useState({});
+  const [loadingSummary, setLoadingSummary] = useState(null);
 
-  // Function to generate a summary using Claude 3.5 Haiku
+  // Function to generate a summary using Claude 3.5 Sonnet for testing
   const summarizeText = async (text) => {
     try {
       console.log("Sending text to summarize:", text);
@@ -120,6 +123,15 @@ export default function App() {
       );
       console.log("Note deleted:", deletedNote);
       
+      // Also remove any stored summary for this note
+      if (summaries[id]) {
+        setSummaries(prev => {
+          const newSummaries = { ...prev };
+          delete newSummaries[id];
+          return newSummaries;
+        });
+      }
+      
       // Refresh the notes list
       fetchNotes();
     } catch (error) {
@@ -135,7 +147,35 @@ export default function App() {
       return;
     }
     
-    await summarizeText(note.description);
+    try {
+      // Set loading state for this specific note
+      setLoadingSummary(note.id);
+      
+      console.log("Generating summary for note:", note.id);
+      
+      const response = await client.generations.generateSummary({
+        description: note.description
+      });
+      
+      console.log("Summary response:", response);
+      
+      if (response && response.data) {
+        // Store the summary in state with the note ID as key
+        setSummaries(prev => ({
+          ...prev,
+          [note.id]: response.data
+        }));
+      } else {
+        console.error("Received empty response from AI service:", response);
+        alert("Received empty response from AI service. Check console for details.");
+      }
+    } catch (error) {
+      console.error("Error generating summary:", error);
+      alert("Error generating summary: " + (error.message || "Unknown error"));
+    } finally {
+      // Clear loading state
+      setLoadingSummary(null);
+    }
   }
 
   // Test function to verify AI summarization works
@@ -177,6 +217,7 @@ export default function App() {
           margin="0 auto"
         >
           <Heading level={1}>My Notes App</Heading>
+          {/* Testing section commented out
           <Flex direction="column" gap="1rem" marginBottom="1rem">
             <Heading level={3}>AI Testing</Heading>
             <Flex direction="row" gap="1rem">
@@ -191,6 +232,7 @@ export default function App() {
             </Flex>
             <Text>Check browser console for detailed logs</Text>
           </Flex>
+          */}
           <View as="form" margin="3rem 0" onSubmit={createNote}>
             <Flex
               direction="column"
@@ -252,6 +294,17 @@ export default function App() {
                   <Heading level="3">{note.name}</Heading>
                 </View>
                 <Text fontStyle="italic">{note.description}</Text>
+                
+                {/* Display summary if available */}
+                {summaries[note.id] && (
+                  <Card variation="elevated" backgroundColor="#f8f9fa" width="100%">
+                    <Flex direction="column" gap="0.5rem">
+                      <Badge variation="success">AI Summary</Badge>
+                      <Text fontWeight="bold">{summaries[note.id]}</Text>
+                    </Flex>
+                  </Card>
+                )}
+                
                 {note.image && (
                   <Image
                     src={note.image}
@@ -269,8 +322,10 @@ export default function App() {
                   <Button
                     variation="primary"
                     onClick={() => summarizeNoteContent(note)}
+                    isLoading={loadingSummary === note.id}
+                    loadingText="Generating..."
                   >
-                    Summarize
+                    {summaries[note.id] ? "Regenerate Summary" : "Summarize"}
                   </Button>
                 </Flex>
               </Flex>
