@@ -192,3 +192,6 @@ The app leverages AWS Bedrock for AI capabilities:
 - AI generation is configured in `amplify/data/resource.ts`
 - Authentication is set up for email-based login
 - Images are stored in user-specific S3 paths
+
+## Noteable issue
+- I stumbled into this issue concerning making calls to Bedrock - https://github.com/aws-amplify/amplify-category-api/issues/3228. My workaround was to create a standalone AWS accounnt, and deploy to us-east-1, as opposed to eu-west-2.
