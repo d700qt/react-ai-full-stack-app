@@ -12,32 +12,41 @@ The following diagram illustrates the application architecture:
 flowchart TD
     %% Frontend Section
     subgraph Frontend["REACT FRONTEND"]
-        Auth["Authenticator Component\n\nHandles user login and signup"]
-        Form["Note Form Component\n\nAllows users to create new notes"]
-        Display["Notes Display Component\n\nShows notes with summaries and uploaded images"]
-        SDK["Amplify Client SDK\n\nConnects React components to AWS backend services"]
+        Auth["Authenticator Component<br><br>Handles user login and signup"]
+        Form["Note Form Component<br><br>Allows users to create new notes"]
+        Display["Notes Display Component<br><br>Shows notes with summaries and uploaded images"]
+        
+        subgraph ClientSDK["Amplify Client Libraries"]
+            SDK["Amplify Client SDK<br><br>Connects React components to AWS backend services"]
+            AIKit["Amplify AI Kit<br><br>Simplifies AI model integration with frontend code"]
+            
+            SDK --- AIKit
+        end
         
         Auth --> SDK
         Form --> SDK
         Display --> SDK
+        Display --> AIKit
     end
     
     %% Backend Section
     subgraph Cloud["AWS CLOUD (Amplify Gen 2)"]
-        Cognito["AWS Cognito User Pools\n\nManages user accounts and security"]
-        AppSync["AWS AppSync GraphQL API\n\nProvides API endpoints for data access"]
-        S3["AWS S3 Storage\n\nStores and serves images uploaded with notes"]
-        DynamoDB["AWS DynamoDB\n\nStores note content and metadata"]
-        AIKit["Amplify AI Kit\n\nSimplifies AI model integration with frontend code"]
-        Bedrock["AWS Bedrock - Claude 3.5 Sonnet\n\nGenerates AI summaries of notes"]
+        Cognito["AWS Cognito User Pools<br><br>Manages user accounts and security"]
+        AppSync["AWS AppSync GraphQL API<br><br>Provides API endpoints for data access"]
+        S3["AWS S3 Storage<br><br>Stores and serves images uploaded with notes"]
+        DynamoDB["AWS DynamoDB<br><br>Stores note content and metadata"]
+        Bedrock["AWS Bedrock - Claude 3.5 Sonnet<br><br>Generates AI summaries of notes"]
         
         AppSync --> DynamoDB
         AppSync <--> Cognito
         S3 <--> AppSync
-        Cognito --> AIKit
-        S3 --> AIKit
-        AIKit --> Bedrock
     end
+    
+    %% Connections between Frontend and Backend
+    SDK --> AppSync
+    SDK --> S3
+    AIKit --> Bedrock
+    AIKit --> AppSync
     
     %% Connection between Frontend and Backend
     SDK --> AppSync
@@ -74,53 +83,53 @@ flowchart TD
 │          │                    │                        │                │
 │          ▼                    ▼                        ▼                │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                     Amplify Client SDK                          │    │
+│  │                     Amplify Client Libraries                    │    │
 │  │                                                                 │    │
-│  │     "Connects React components to AWS backend services"         │    │
-│  └─────────────────────────────┬───────────────────────────────────┘    │
-│                                │                                        │
-└────────────────────────────────┼────────────────────────────────────────┘
-                                 │
-                                 ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                      AWS CLOUD (Amplify Gen 2)                          │
-│                                                                         │
-│  ┌───────────────┐    ┌───────────────┐    ┌───────────────────────┐    │
-│  │ AWS Cognito   │    │  AWS AppSync  │    │     AWS S3            │    │
-│  │ User Pools    │◄───┤  GraphQL API  │◄───┤     Storage           │    │
-│  │               │    │               │    │                       │    │
-│  │ "Manages user │    │ "Provides API │    │ "Stores and serves    │    │
-│  │  accounts and │    │  endpoints for│    │  images uploaded      │    │
-│  │  security"    │    │  data access" │    │  with notes"          │    │
-│  └───────┬───────┘    └───────┬───────┘    └───────────┬───────────┘    │
-│          │                    │                        │                │
-│          │                    │                        │                │
-│          │                    ▼                        │                │
-│          │            ┌───────────────┐                │                │
-│          │            │  AWS DynamoDB │                │                │
-│          │            │  (Note Data)  │                │                │
-│          │            │               │                │                │
-│          │            │ "Stores note  │                │                │
-│          │            │  content and  │                │                │
-│          │            │  metadata"    │                │                │
-│          │            └───────────────┘                │                │
-│          │                                             │                │
-│          │            ┌───────────────────────┐        │                │
-│          │            │   Amplify AI Kit      │        │                │
-│          │            │                       │        │                │
-│          │            │ "Simplifies AI model  │        │                │
-│          └───────────►│  integration with     │◄───────┘                │
-│                       │  frontend code"       │                         │
-│                       └──────────┬────────────┘                         │
-│                                  │                                      │
-│                                  ▼                                      │
-│                       ┌───────────────────────┐                         │
-│                       │     AWS Bedrock       │                         │
-│                       │  Claude 3.5 Sonnet    │                         │
-│                       │                       │                         │
-│                       │ "Generates AI         │                         │
-│                       │  summaries of notes"  │                         │
-│                       └───────────────────────┘                         │
+│  │  ┌─────────────────────┐          ┌─────────────────────────┐   │    │
+│  │  │   Amplify Client    │          │      Amplify AI Kit     │   │    │
+│  │  │        SDK          │◄────────►│                         │   │    │
+│  │  │                     │          │ "Simplifies AI model    │   │    │
+│  │  │ "Connects React     │          │  integration with       │   │    │
+│  │  │  components to AWS  │          │  frontend code"         │   │    │
+│  │  │  backend services"  │          │                         │   │    │
+│  │  └─────────┬───────────┘          └───────────┬─────────────┘   │    │
+│  │            │                                  │                 │    │
+│  └────────────┼──────────────────────────────────┼─────────────────┘    │
+│               │                                  │                      │
+└───────────────┼──────────────────────────────────┼──────────────────────┘
+                │                                  │
+                ▼                                  ▼
+┌───────────────┼──────────────────────────────────┼──────────────────────┐
+│               │        AWS CLOUD (Amplify Gen 2) │                      │
+│               │                                  │                      │
+│  ┌────────────┼────────┐    ┌──────────────────┐ │                      │
+│  │ AWS Cognito         │    │  AWS AppSync     │ │                      │
+│  │ User Pools          │◄───┤  GraphQL API     │ │                      │
+│  │                     │    │                  │ │                      │
+│  │ "Manages user       │    │ "Provides API    │ │                      │
+│  │  accounts and       │    │  endpoints for   │ │                      │
+│  │  security"          │    │  data access"    │ │                      │
+│  └─────────────────────┘    └────────┬─────────┘ │                      │
+│                                      │           │                      │
+│                                      │           │                      │
+│                                      ▼           │                      │
+│                             ┌────────────────┐   │  ┌──────────────────┐│
+│                             │  AWS DynamoDB  │   │  │    AWS Bedrock   ││
+│                             │  (Note Data)   │   │  │ Claude 3.5 Sonnet││
+│                             │                │   │  │                  ││
+│                             │ "Stores note   │   │  │ "Generates AI    ││
+│                             │  content and   │   │  │  summaries of    ││
+│                             │  metadata"     │   │  │  notes"          ││
+│                             └────────────────┘   │  └──────────────────┘│
+│                                                  │                      │
+│  ┌─────────────────────┐                         │                      │
+│  │     AWS S3          │                         │                      │
+│  │     Storage         │                         │                      │
+│  │                     │                         │                      │
+│  │ "Stores and serves  │                         │                      │
+│  │  images uploaded    │◄────────────────────────┘                      │
+│  │  with notes"        │                                                │
+│  └─────────────────────┘                                                │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -182,4 +191,4 @@ The app leverages AWS Bedrock for AI capabilities:
 - The app uses Amplify Gen 2's TypeScript-based infrastructure as code
 - AI generation is configured in `amplify/data/resource.ts`
 - Authentication is set up for email-based login
-- Images are stored in user-specific S3 paths for security
+- Images are stored in user-specific S3 paths
